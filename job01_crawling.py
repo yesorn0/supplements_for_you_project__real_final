@@ -69,5 +69,7 @@ for idx, url in enumerate(hrefs):
     reviews.append(review)
 print(reviews)
 
+
 df = pd.DataFrame({'title': titles, 'reviews': reviews})
+
 df.to_csv('./data/reviews.csv', index=False)
