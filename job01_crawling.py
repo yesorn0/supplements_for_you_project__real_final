@@ -116,18 +116,3 @@ print(reviews)
 df = pd.DataFrame({'titles':titles, 'reviews':reviews})
 
 df.to_csv('./data/reviews.csv', index=False)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
