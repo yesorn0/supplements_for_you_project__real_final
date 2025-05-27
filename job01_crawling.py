@@ -118,11 +118,6 @@ df = pd.DataFrame({'titles':titles, 'reviews':reviews})
 my_name = 'JKY'
 df.to_csv('./data/reviews_{}.csv'.format(my_name), index=False)
 
-
-
-
-
-
 print("")
 
 
