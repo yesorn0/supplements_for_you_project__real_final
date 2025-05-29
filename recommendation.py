@@ -24,7 +24,7 @@ with open('./knowledge/avoid_mapping.json', 'r', encoding='utf-8') as f:
     avoid_mapping = json.load(f)
 
 # ------------------- 2. 증상 입력 -------------------
-input_symptoms = ['편두통']  # 다중 입력 가능
+input_symptoms = ['항산화']  # 다중 입력 가능
 
 # 중요도 가중치 문장 생성 함수
 def build_weighted_sentence(keywords):
