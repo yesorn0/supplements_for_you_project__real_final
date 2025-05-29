@@ -13,15 +13,14 @@ plt.rc('font', family = 'NanumBarunGothic') # Matplotlib에서 폰트 지정
 ## 워드 클라우드는 기본적으로 영어 폰트만 지원, 한글 글꼴 지정은 필수
 
 # 의미없는 단어(불용어) 제거
-stop_words = ['영화', '감독', '연출', '배우', '하다', '있다', '없다', '보다'
-              ,'되다'] # 분석에 방해되는 단어들을 따로 리스트로 저장
+stop_words = ['구미','젤리', '맛있다.']
 
 # 데이터 불러오기
-df = pd.read_csv('./cleaned_data/cleaned_review.csv') # 정제된 리뷰 데이터 불러오기
-print(df.head()) # 앞부분 출력해 확인
+df = pd.read_csv('./cleaned_data/cleaned_supplements.csv') # 정제된 리뷰 데이터 불러오기
+print(df.head(320)) # 앞부분 출력해 확인
 
 # 특정 문장 선택 및 전처리 
-sentence = df.iloc[1127,1] # 리뷰의 'reviews' 컬럼 내용 가져오기
+sentence = df.iloc[320,3] # 리뷰의 'reviews' 컬럼 내용 가져오기
 # words = df.iloc[0, 1].split().split()
 
 # 불용어 리스트에 있는 단어들을 모두 빈 문자열로 치환(삭제)

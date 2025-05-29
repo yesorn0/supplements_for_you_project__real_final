@@ -1,74 +1,66 @@
-from itertools import count
-
-import pandas as pd # 데이터프레임 처리용(csv읽기, 필터링용)
+import pandas as pd
+import pickle
+import json
 from gensim.models import Word2Vec
-from sklearn.metrics.pairwise import linear_kernel, cosine_similarity # 코사인 유사도 계산용
-from scipy.io import mmread # .mtx 파일을 읽어들이는 함수
-import pickle # TF-IDF 벡터 변환기를 불러오기 위한 모듈
+from sklearn.metrics.pairwise import linear_kernel
+from scipy.io import mmread
 
-# ------------------------------------------------------------------------------------
-
-# 추천함수 정의
-# 유사도 행렬을 받아서 유사한 영화 10개를 반환하는 함수
-def getRecommendation(cosine_sim):
-    simScore = list(enumerate(cosine_sim[-1])) # 각 영화의 유사도 점수를 인데그와 함께 리스트로 저장
-    simScore = sorted(simScore, key = lambda x:x[1], reverse=True) # 유사도가 높은 순으로 정렬
-    simScore = simScore[:11] # 자기 자신 + 유사한 영화 10개 선택
-    movie_idx = [i[0] for i in simScore] # 인덱스만 따로 추출
-    rec_movie_list = df_reviews.iloc[movie_idx, 0] # 제목 컬럼(index 0)을 기반으로 추천 목록 생성
-    return rec_movie_list[1:11] # 자기 자신은 제외하고 10개만 반환
-
-# ------------------------------------------------------------------------------------
-
-# 리뷰데이터 불러오기
-df_reviews = pd.read_csv('./cleaned_data/cleaned_reviews.csv') # 정제된 데이터 불러오기
-# df_reviews.dropna(inplace= True)
-df_reviews.info() # 데이터 구조 확인
-print(str(df_reviews.iloc[1126, 1])) # 1126번째 리뷰 출력 -> 추천이 어떻게 동작하는지 확인용
-
-# TF-IDF벡터 불러오기
-tfidf_matrix = mmread('./models/tfidf_movie_review.mtx').tocsr() #.mtx 형식의 희소행렬 파일을 불러온 뒤, csr형식(빠른 행 연산진원)으로 변환
-with open('./models/tfidf.pickle', 'rb') as f : # pickle 파일에서 TF-IDF 변환기 객체 불러오기
+# ------------------- 1. 모델 및 데이터 로딩 -------------------
+df_products = pd.read_csv('./models/tfidf_products.csv')
+tfidf_matrix = mmread('./models/tfidf_supplements.mtx').tocsr()
+with open('./models/tfidf.pickle', 'rb') as f:
     tfidf = pickle.load(f)
+embedding_model = Word2Vec.load('./models/word2vec_supplements_review.model')
 
-# ------------------------------------------------------------------------------------
+# symptom to keywords mapping 불러오기
+with open('./knowledge/mapping.json', 'r', encoding='utf-8') as f:
+    symptom_mapping = json.load(f)
+
+# ------------------- 2. 증상 입력 -------------------
+input_symptom = '다한증, 피로'  # 사용자 입력 가능
+
+# 증상 매핑 기반 키워드 추출
+keywords = []
+for category, key_list in symptom_mapping.items():
+    if input_symptom in key_list:
+        keywords.extend(key_list)
+        break
+
+# 매핑이 없으면 input_symptom 자체 사용
+if not keywords:
+    keywords = [input_symptom]
+
+# 의미 확장 (Word2Vec 기반)
+if input_symptom in embedding_model.wv:
+    sim_words = embedding_model.wv.most_similar(input_symptom, topn=5)
+    keywords.extend([w for w, _ in sim_words])
+
+# 중요도 가중치 문장 생성
+def build_weighted_sentence(keywords):
+    sentence = []
+    weight = len(keywords)
+    for word in keywords:
+        sentence.extend([word] * weight)
+        weight -= 1
+    return ' '.join(sentence)
+
+query_sentence = build_weighted_sentence(keywords)
+
+# ------------------- 3. 벡터화 및 유사도 계산 -------------------
+query_vec = tfidf.transform([query_sentence])
+cosine_sim = linear_kernel(query_vec, tfidf_matrix)
+
+# ------------------- 4. 제품 추천 -------------------
+def recommend_products(cosine_sim, topn=10):
+    sim_scores = list(enumerate(cosine_sim[-1]))
+    sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)[:topn]
+    indices = [idx for idx, _ in sim_scores]
+    return df_products.iloc[indices]
+
+# ------------------- 5. 출력 -------------------
+recommend_df = recommend_products(cosine_sim)
+print(f"\n✅ 증상 '{input_symptom}' 관련 추천 영양제 TOP {len(recommend_df)}개:\n")
+for idx, row in recommend_df.iterrows():
+    print(f"- {row['product']}")
 
 
-## 영화 index를 이용한 추천
-# 추천대상 문장 선택
-# ref_idx = 100 # 추천기준이 될 영화 인덱스(50번째 영화)
-# print(df_reviews.iloc[ref_idx, 0]) # 기준영화 제목 출력
-#
-# # ------------------------------------------------------------------------------------
-# # 기준영화(50번)과 모든 영화 사이의 유사도 계산(linear_kernel은 cosine similarity와 동일효과)
-# cosine_sim = linear_kernel(tfidf_matrix[ref_idx], tfidf_matrix)
-#
-# print(cosine_sim) # 유사도 점수(0~1 사이) 출력
-# print(len(cosine_sim[0])) # 코사인값이 1163개 있다.
-# # ------------------------------------------------------------------------------------
-# # 추천 목록 생성
-# recommendation = getRecommendation(cosine_sim) # 추천 결과 받아오기
-# print(recommendation[1:]) # 추천된 영화 제목 출력
-
-# ------------------------------------------------------------------------------------
-## Keyword를 이용한 추천
-embedding_model = Word2Vec.load('./models/word2vec_movie_review.model')
-keyword = '여름'
-sim_word = embedding_model.wv.most_similar(keyword, topn= 10)
-words = [keyword]
-for word, _ in sim_word :
-    words.append(word)
-sentence = []
-count = 10
-
-for word in words :
-    sentence = sentence + [word] * count
-    count -= 1
-sentence = ' '.join((sentence))
-print(sentence)
-
-
-sentence_vec = tfidf.transform([sentence])
-cosine_sim = linear_kernel(sentence_vec, tfidf_matrix)
-recommendation = getRecommendation(cosine_sim)
-print(recommendation)

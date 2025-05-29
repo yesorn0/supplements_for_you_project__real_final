@@ -1,58 +1,64 @@
 import pandas as pd
-import re # 정규표현식, 텍스트에서 특정패턴(한글, 숫자 등)을 걸러낼 때 사용
-# 형태소 분석기, 한국어 문장을 단어 단위로 분석하여 품사 정보를 붙여줌
-from konlpy.tag import Okt # 처음 사용하는거면 자바 설치해야함  
+import re
+from konlpy.tag import Okt
 
-# 정제된 CSV 파일 불러오기
-df = pd.read_csv('./cleaned_data/movie_reviews.csv')
-df.info()   # 데이터 개요 확인(행수, 컬럼 명, 결측치 등)
-print(df.head())    # 실제 데이터 일부 보기
+# 1. 데이터 불러오기
+df = pd.read_csv('./cleaned_data/all_supplements.csv')
+print(df.info())
+print(df.head())
 
-# 의미없는 단어(불용어) 제거
-stop_words = ['영화', '감독', '연출', '배우', '하다', '있다', '없다', '보다'
-    , '되다','연기', '작품', '이다', '내다', '아니다', '크다']
+# 2. 형태소 분석기 준비
+okt = Okt()
+cleaned_sentences = []
 
-# 형태소 분석 준비
-okt = Okt() # Okt 객체 생성(형태소 분석기)
-cleaned_sentences = []  # 정제된 문장들을 저장할 리스트
+# 3. 불용어 설정
+stop_words = [
+    # 일반 동사/형용사
+    '하다', '되다', '있다', '없다', '같다', '보다', '주다', '먹다', '좋다', '나쁘다',
+    '많다', '적다', '크다', '작다', '들다', '꾸준하다', '훌륭하다', '탁월하다',
+    '만족하다', '넘다', '들어서다', '안되다', '좋아하다', '되어다', '깔끔하다', '해보다',
+    '해주다', '먹이다', '먹어주다', '아니다', '재다', '넘어가다', '사다', '빠르다',
+    '켜지다', '다만', '비싸다', '기다리다', '특별하다', '꼼꼼하다', '이다', '어렵다',
+    '않다', '먹기', '부분', '챙기다',
 
-# 리뷰 하나씩 반복해서 처리, # 명사, 동사, 부사 와 같이 영화와 관련된 단어들을 가져가야 한다
-for review in df.reviews:
-    review = re.sub('[^가-힣]', ' ', review) # 한글(가-힣)제외 모두 제거(영어, 숫자, 기호 등 제거)
-    # pos와 mos 차이점 알아보기
-    tokend_review = okt.pos(review, stem=True) # 형태소 분석 수행, 원형 복원(stem = True)
-    # print(tokend_review)
-    # 분석결과를 데이터프레임으로 바꿔서 보기좋게 정리 #조금 더 디테일하게 전처리 진행
-    df_token = pd.DataFrame(tokend_review, columns=['word', 'class'])
-    # print(df_token)
-    
-    #명사, 형용사, 동사만 남김(이 외 감탄사, 조사, 구두점 등 제거)
-    df_token = df_token[(df_token['class']=='Noun') |
-                        (df_token['class'] == 'Adjective') |
-                        (df_token['class'] == 'Verb')]
+    # 명사
+    '제품', '영양제', '구매', '구입', '사용', '가격', '포장', '배송', '리뷰',
+    '후기', '품절', '유기농', '직구', '함량', '냄새', '부담',
 
-    # print(df_token)
-    # 단어 길이 1글자 이하 제거
-    words = [] # 필터링된 단어를 저장
-    for word in df_token.word:
-        if 1 < len(word):   # 글자 수가 2이상인 단어만 사용
-            if word not in stop_words:
-                words.append(word)
-    cleaned_sentence = ' '.join(words)  # 단어들을 공백으로 연결하여 문장 형태로 만듬
-    print(cleaned_sentence)             # 중간확인(정제된 문장)
-    cleaned_sentences.append(cleaned_sentence)  # 최종 문장 리스트에 추가
+    # 수량, 시간, 기타
+    '하루', '개월', '이상', '정도', '전', '후', '지금', '조금', '다시', '계속',
+    '처음', '최근', '현재', '매일', '늘', '함께',
 
-# DataFrame에 적용 및 저장
-df['reviews'] = cleaned_sentences # 정제된 문장으로 기존 리뷰 데이터 대체
-df.dropna(inplace= True)            # 결측값 제거
-df.drop_duplicates(inplace=True)    # 중복 제거
-df.info()                           # 정보 확인
-print(df.head())                    # 일부 데이터 확인
-df.to_csv('./cleaned_data/cleaned_reviews.csv', index= False) # 최종 정제된 리뷰를 다시 CSV로 저장
+    # 신체/감정 추상어
+    '느낌', '기분', '만족', '불만',
+]
 
-# 한번 더 점검, # 혹시 모를 결측치 확인 및 재저장(안전한 후 처리)
-df = pd.read_csv('./cleaned_data/cleaned_reviews.csv')
-df.dropna(inplace=True)
-df.info()
-df.to_csv('./cleaned_data/cleaned_reviews.csv', index = False)
+# 4. 1글자라도 유지할 중요한 단어들
+preserve_words = ['A', 'B', 'C', 'D', 'E', 'K', '손', '발', '목', '몸',
+                  '눈', '팔', '간', '장', '뇌', '뼈', '귀', '코',
+                  '위', '폐', '피']
 
+# 5. 리뷰 하나씩 처리
+for review in df['review']:
+    review = review.replace('|', ' ')  # 구분자 제거
+    review = re.sub('[^가-힣A-Za-z]', ' ', review)  # 한글/영문 외 문자 제거
+
+    # 형태소 분석 + 원형 복원
+    tokens = okt.pos(review, stem=True)
+
+    words = []
+    for w, cls in tokens:
+        if w in preserve_words:
+            words.append(w)  # 무조건 포함
+        elif cls in ['Noun', 'Adjective', 'Verb'] and len(w) > 1 and w not in stop_words:
+            words.append(w)
+
+    cleaned = ' '.join(words)
+    print(cleaned)  # 중간 확인용
+    cleaned_sentences.append(cleaned)
+
+# 6. 결과 저장
+df['review'] = cleaned_sentences
+df.drop_duplicates(subset=['review'], inplace=True)  # 중복 제거
+df.to_csv('./cleaned_data/cleaned_supplements.csv', index=False, encoding='utf-8-sig')
+print("✅ 불용어 필터링 및 1글자 키워드 유지 전처리 완료")
