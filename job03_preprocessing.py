@@ -6,9 +6,21 @@ from multiprocessing import Pool, cpu_count
 import numpy as np
 
 # 1. 데이터 불러오기
-df = pd.read_csv('./cleaned_data/all_supplements.csv')
+df = pd.read_csv('./cleaned_data/supplements.csv')
 print(df.info())
 print(df.head())
+
+
+def amplify_product_mentions(df, col_review='review', col_product='product', repeat=500):
+    df = df.copy()
+    df[col_review] = df.apply(
+        lambda row: (row[col_product] + ' ') * repeat + row[col_review], axis=1
+    )
+    return df
+
+# 1-1. 제품명 기반 데이터 증폭
+df = amplify_product_mentions(df, repeat=500)
+
 
 # 0번째 열: 영양제 종류 정제 (띄어쓰기 제거 + 명칭 통일)
 df.iloc[:, 0] = df.iloc[:, 0].str.replace(' ', '', regex=False)  # 모든 공백 제거
@@ -25,7 +37,7 @@ df.iloc[:, 0] = df.iloc[:, 0].replace({
     '임산부종합비타민': '임산부종합비타민',
 })
 
-print("\n✅ 정제된 영양제 종류 고유값:")
+print("\n정제된 영양제 종류 고유값:")
 print(df.iloc[:, 0].unique())
 
 # 2. 성능 최적화를 위한 설정
@@ -55,16 +67,34 @@ preserve_words = set(['A', 'B', 'C', 'D', 'E', 'K', '손', '발', '목', '몸', 
                       '팔', '간', '장', '뇌', '뼈', '귀', '코', '위', '폐', '피'])
 
 # 5. 정규표현식 컴파일 (성능 향상)
+# vitamin_patterns = [
+#     (re.compile(r'비타민\s*([AaBbCcDdEeKk])', re.IGNORECASE), r'비타민\1'),
+#     (re.compile(r'비타민([a-z])'), lambda m: f'비타민{m.group(1).upper()}'),
+#     (re.compile(r'비타민\s*[Bb]\s*(\d+)'), r'비타민B\1'),
+#     (re.compile(r'[Vv]itamin\s*([AaBbCcDdEeKk])'), r'비타민\1'),
+#     (re.compile(r'비타민\s*디\s*(?:3|three)', re.IGNORECASE), '비타민D'),
+#     (re.compile(r'비타민\s*씨', re.IGNORECASE), '비타민C'),
+# ]
+
 vitamin_patterns = [
-    (re.compile(r'비타민\s*([AaBbCcDdEeKk])', re.IGNORECASE), r'비타민\1'),
-    (re.compile(r'비타민([a-z])'), lambda m: f'비타민{m.group(1).upper()}'),
-    (re.compile(r'비타민\s*[Bb]\s*(\d+)'), r'비타민B\1'),
     (re.compile(r'[Vv]itamin\s*([AaBbCcDdEeKk])'), r'비타민\1'),
-    (re.compile(r'비타민\s*디\s*(?:3|three)', re.IGNORECASE), '비타민D'),
+    (re.compile(r'비타민\s*에이', re.IGNORECASE), '비타민A'),
+    (re.compile(r'비타민\s*비\s*(\d+)', re.IGNORECASE), r'비타민B\1'),
+    (re.compile(r'비타민\s*비(\d+)', re.IGNORECASE), r'비타민B\1'),
+    (re.compile(r'비타민\s*비원', re.IGNORECASE), '비타민B1'),
     (re.compile(r'비타민\s*씨', re.IGNORECASE), '비타민C'),
+    (re.compile(r'비타민\s*디\s*(?:3|three)?', re.IGNORECASE), '비타민D'),
+    (re.compile(r'비타민\s*이', re.IGNORECASE), '비타민E'),
+    (re.compile(r'비타민\s*케이', re.IGNORECASE), '비타민K'),
+    (re.compile(r'비타민([a-z])'), lambda m: f'비타민{m.group(1).upper()}'),
+    (re.compile(r'비타민\s*([ABCDEFKabcdefk])'), lambda m: f'비타민{m.group(1).upper()}'),
 ]
 
 special_char_pattern = re.compile('[^가-힣A-Za-z0-9]')
+
+
+
+
 
 
 def normalize_vitamins_optimized(text):
@@ -175,7 +205,7 @@ def process_reviews_batch(reviews_batch):
 
 
 # 6. 메인 처리 로직
-print(f"\n🚀 총 {len(df)} 개의 리뷰 처리 시작...")
+print(f"\n 총 {len(df)} 개의 리뷰 처리 시작...")
 start_time = time.time()
 
 # 배치 크기 설정 (메모리와 성능의 균형)
@@ -216,19 +246,28 @@ df.to_csv('./cleaned_data/cleaned_supplements.csv', index=False, encoding='utf-8
 
 end_time = time.time()
 total_time = end_time - start_time
-print(f"\n✅ 리뷰 전처리 완료! 총 소요시간: {total_time:.1f}초")
+print(f"\n 리뷰 전처리 완료! 총 소요시간: {total_time:.1f}초")
 print(f"평균 처리속도: {len(df) / total_time:.2f}개/초")
 
 # 8. 정규화 결과 확인
-print("\n✅ 비타민 표기 정규화 테스트:")
+#  정규화 테스트 케이스 확장
+print("\n비타민 표기 정규화 테스트:")
 test_cases = [
-    "비타민 a가 좋아요",
-    "비타민 A 효과",
-    "vitamin c 추천",
-    "비타민 디3",
-    "비타민 씨",
-    "비타민B 12",
-    "비타민 b1 복합체"
+    "비타민 a가 좋아요",           # A 소문자
+    "비타민 A 효과",               # A 대문자
+    "vitamin b1 복합체",           # vitamin + 숫자
+    "비타민 비1",                 # 한글 음역
+    "비타민 비 12",               # 띄어쓰기 있는 비타민B
+    "비타민 비원",                # 음역어
+    "비타민 씨",                 # 한글 C
+    "vitamin c 추천",            # 영어 C
+    "비타민 디3",                # D와 숫자
+    "vitamin D",                # 영어 대문자 D
+    "비타민 디",                 # 한글 D
+    "비타민 이",                 # 한글 E
+    "vitamin e",                # 영어 소문자 E
+    "비타민 케이",               # 한글 K
+    "Vitamin K",                # 영어 대문자 K
 ]
 
 for test in test_cases:

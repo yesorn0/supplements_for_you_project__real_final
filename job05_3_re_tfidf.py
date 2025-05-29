@@ -106,12 +106,20 @@ class TFIDFProcessor:
 
         default_params = {
             'sublinear_tf': True,
-            'max_features': 10000,
+            'max_features': 20000,
             'min_df': 2,
             'max_df': 0.8,
             'ngram_range': (1, 2)
         }
         default_params.update(tfidf_params)
+
+        # ✅ 불용어 적용
+        stopwords_path = self.output_dir / 'filtered_stopwords.csv'
+        if stopwords_path.exists():
+            stopwords_df = pd.read_csv(stopwords_path)
+            stopwords = stopwords_df['word'].tolist()
+            default_params['stop_words'] = stopwords
+            self.logger.info(f"불용어 {len(stopwords):,}개 적용됨")
 
         try:
             tfidf = TfidfVectorizer(**default_params)
@@ -121,9 +129,9 @@ class TFIDFProcessor:
             self.logger.info(f"TF-IDF 완료:")
             self.logger.info(f"   - 행렬 크기: {tfidf_matrix.shape}")
             self.logger.info(f"   - 특성 수: {len(tfidf.get_feature_names_out()):,}")
-            self.logger.info(f"   - 희소성: {(1 - tfidf_matrix.nnz / (tfidf_matrix.shape[0] * tfidf_matrix.shape[1])) * 100:.2f}%")
+            self.logger.info(
+                f"   - 희소성: {(1 - tfidf_matrix.nnz / (tfidf_matrix.shape[0] * tfidf_matrix.shape[1])) * 100:.2f}%")
             self.logger.info(f"   - 소요 시간: {elapsed_time:.2f}초")
-
 
             return tfidf, tfidf_matrix
 

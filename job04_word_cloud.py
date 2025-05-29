@@ -17,7 +17,7 @@ stop_words = ['구미','젤리', '맛있다.']
 
 # 데이터 불러오기
 df = pd.read_csv('./cleaned_data/cleaned_supplements.csv') # 정제된 리뷰 데이터 불러오기
-print(df.head(320)) # 앞부분 출력해 확인
+print(df.head(10)) # 앞부분 출력해 확인
 
 # 특정 문장 선택 및 전처리 
 sentence = df.iloc[320,3] # 리뷰의 'reviews' 컬럼 내용 가져오기
