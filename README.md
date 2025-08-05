@@ -24,6 +24,8 @@
 
 ```bash
 pip install -r requirements.txt
+```
+
 2. 애플리케이션 실행
 패키지를 설치한 후, 메인 파이썬 파일을 실행합니다:
 
