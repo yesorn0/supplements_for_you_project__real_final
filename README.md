@@ -61,6 +61,9 @@ python main.py
 
 ![영양제UI영상](https://github.com/user-attachments/assets/7a3d632d-6f18-4d1f-a219-28b3e301597d)
 
+![영양제UI영상 (1)](https://github.com/user-attachments/assets/20a6c74f-d68b-4594-b488-58f2f48e86a3)
+
+
 
 ---
 
