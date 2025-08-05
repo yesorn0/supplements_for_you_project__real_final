@@ -45,21 +45,15 @@ python main.py
 
 입력 증상:
 
-피로감
+면역력 저하
 
-집중력 저하
-
-피부 트러블
+빈혈
 
 추천 결과 (예시):
 
-센트룸 포맨
 
-삐콤씨 파워
+철분제
 
-엘라스틴 피부영양제
-
-![영양제UI영상](https://github.com/user-attachments/assets/7a3d632d-6f18-4d1f-a219-28b3e301597d)
 
 ![영양제UI영상 (1)](https://github.com/user-attachments/assets/20a6c74f-d68b-4594-b488-58f2f48e86a3)
 
